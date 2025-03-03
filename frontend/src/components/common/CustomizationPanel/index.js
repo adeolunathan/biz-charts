@@ -11,7 +11,16 @@ import Format from './Format';
  * 1. Split large components into smaller, manageable pieces
  * 2. Only load the panels that are actually needed
  * 3. Keep related code together
+ *
+ * Usage:
+ * import CustomizationPanel from './common/CustomizationPanel';
+ *
+ * // Then use individual panels:
+ * <CustomizationPanel.Fields />
+ * <CustomizationPanel.General />
+ * <CustomizationPanel.Format />
  */
+
 const CustomizationPanel = {
   Fields,
   General,

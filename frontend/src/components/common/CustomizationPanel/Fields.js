@@ -1,9 +1,9 @@
 // FILE: ~/Downloads/my work/bizcharts/frontend/src/components/common/CustomizationPanel/Fields.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useChartContext } from '../../../contexts/ChartContext';
 
 /**
- * Fields panel for selecting X and Y axis fields and configuring basic visibility
+ * Enhanced Fields panel for selecting X and Y axis fields and configuring basic visibility
  */
 const Fields = () => {
   const {
@@ -13,6 +13,7 @@ const Fields = () => {
     setXAxisKey,
     yAxisKeys,
     setYAxisKeys,
+    availableColumns,
 
     // Visualization settings
     visibilityOptions,
@@ -25,17 +26,7 @@ const Fields = () => {
 
   // State for Y-axis selector modal
   const [showYAxisSelector, setShowYAxisSelector] = useState(false);
-  const [availableColumns, setAvailableColumns] = useState([]);
-
-  // Calculate available columns
-  React.useEffect(() => {
-    if (chartData.length > 0) {
-      const allColumns = Object.keys(chartData[0]);
-      const usedColumns = [xAxisKey, ...yAxisKeys];
-      const availableCols = allColumns.filter(col => !usedColumns.includes(col));
-      setAvailableColumns(availableCols);
-    }
-  }, [chartData, xAxisKey, yAxisKeys]);
+  const [selectedColumnForYAxis, setSelectedColumnForYAxis] = useState('');
 
   // Open Y-axis selector modal
   const openYAxisSelector = () => {
@@ -60,16 +51,27 @@ const Fields = () => {
       }));
 
       // Update chart data
-      // Note: In a real implementation, this should be done through a separate function
-      // that handles all the state updates properly
+      // Note: In a real implementation, we would use setChartData
+      // but here we'll just add the new column to Y-axis keys
 
       setYAxisKeys([...yAxisKeys, newColumnName]);
-    } else if (columnName) {
+    } else if (columnName && !yAxisKeys.includes(columnName)) {
       // Add existing column
       setYAxisKeys([...yAxisKeys, columnName]);
     }
 
     setShowYAxisSelector(false);
+    setSelectedColumnForYAxis('');
+  };
+
+  // Remove a Y-axis series
+  const removeYAxis = (key) => {
+    setYAxisKeys(yAxisKeys.filter(k => k !== key));
+  };
+
+  // Get color for a Y-axis series
+  const getSeriesColor = (index) => {
+    return styleOptions.colorPalette[index % styleOptions.colorPalette.length];
   };
 
   return (
@@ -80,10 +82,13 @@ const Fields = () => {
           value={xAxisKey}
           onChange={(e) => {
             const newXKey = e.target.value;
-            setXAxisKey(newXKey);
 
-            // Update Y-axis keys to exclude new X-axis
-            setYAxisKeys(yAxisKeys.filter(key => key !== newXKey));
+            // If the new X-axis is currently a Y-axis, remove it from Y-axes
+            if (yAxisKeys.includes(newXKey)) {
+              setYAxisKeys(yAxisKeys.filter(key => key !== newXKey));
+            }
+
+            setXAxisKey(newXKey);
           }}
         >
           {chartData.length > 0 && Object.keys(chartData[0]).map((column, index) => (
@@ -99,19 +104,22 @@ const Fields = () => {
             <div key={index} className="y-axis-item">
               <div
                 className="color-box"
-                style={{ backgroundColor: styleOptions.colorPalette[index % styleOptions.colorPalette.length] }}
+                style={{ backgroundColor: getSeriesColor(index) }}
               ></div>
               <span>{key}</span>
 
               <button
                 className="remove-y-axis"
-                onClick={() => setYAxisKeys(yAxisKeys.filter(k => k !== key))}
+                onClick={() => removeYAxis(key)}
+                title="Remove series"
               >
                 ×
               </button>
             </div>
           ))}
-          <button className="add-y-axis" onClick={openYAxisSelector}>+ Y-Axis</button>
+          <button className="add-y-axis" onClick={openYAxisSelector} title="Add data series">
+            + Y-Axis
+          </button>
         </div>
       </div>
 
@@ -168,6 +176,32 @@ const Fields = () => {
             id="grid-y-toggle"
           />
           <label htmlFor="grid-y-toggle" className="slider"></label>
+        </div>
+      </div>
+
+      <div className="control-group toggle">
+        <label>Show Points on Lines</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={visibilityOptions.showPoints}
+            onChange={(e) => updateVisibilityOptions({ showPoints: e.target.checked })}
+            id="points-toggle"
+          />
+          <label htmlFor="points-toggle" className="slider"></label>
+        </div>
+      </div>
+
+      <div className="control-group toggle">
+        <label>Show Values on Chart</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={visibilityOptions.showValues}
+            onChange={(e) => updateVisibilityOptions({ showValues: e.target.checked })}
+            id="values-toggle"
+          />
+          <label htmlFor="values-toggle" className="slider"></label>
         </div>
       </div>
 
@@ -248,16 +282,23 @@ const Fields = () => {
               {availableColumns.length > 0 ? (
                 <>
                   <p>Select a column to add as Y-axis:</p>
-                  <div className="column-list">
+                  <select
+                    value={selectedColumnForYAxis}
+                    onChange={(e) => setSelectedColumnForYAxis(e.target.value)}
+                  >
+                    <option value="">-- Select Column --</option>
                     {availableColumns.map((column, index) => (
-                      <button
-                        key={index}
-                        className="column-button"
-                        onClick={() => addYAxis(column)}
-                      >
-                        {column}
-                      </button>
+                      <option key={index} value={column}>{column}</option>
                     ))}
+                  </select>
+                  <div className="modal-action">
+                    <button
+                      className="add-column-button"
+                      onClick={() => addYAxis(selectedColumnForYAxis)}
+                      disabled={!selectedColumnForYAxis}
+                    >
+                      Add Column
+                    </button>
                   </div>
                 </>
               ) : (

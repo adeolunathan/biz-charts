@@ -16,7 +16,7 @@ const AVAILABLE_FONTS = [
 ];
 
 /**
- * General options panel for chart title, axes and general appearance
+ * Enhanced General options panel for chart title, axes and general appearance
  */
 const General = () => {
   const {
@@ -30,19 +30,37 @@ const General = () => {
 
     // Style options
     styleOptions,
-    updateStyleOptions
+    updateStyleOptions,
+
+    // Line chart specific
+    curveType,
+    setCurveType,
+    fillArea,
+    setFillArea,
+    logScale,
+    setLogScale,
+    orientation,
+    setOrientation
   } = useChartContext();
 
   return (
     <div className="general-options-panel">
+      <div className="control-group section-title">
+        <h3>Chart Title</h3>
+      </div>
+
       <div className="control-group">
         <label>Title</label>
         <input
           type="text"
           value={chartTitle}
           onChange={(e) => setChartTitle(e.target.value)}
-          placeholder="Graph Title"
+          placeholder="Enter chart title"
         />
+      </div>
+
+      <div className="control-group section-title">
+        <h3>Axis Titles</h3>
       </div>
 
       <div className="control-group">
@@ -65,6 +83,64 @@ const General = () => {
         />
       </div>
 
+      <div className="control-group section-title">
+        <h3>Line Style</h3>
+      </div>
+
+      <div className="control-group">
+        <label>Line Curve Type</label>
+        <select
+          value={curveType}
+          onChange={(e) => setCurveType(e.target.value)}
+        >
+          <option value="linear">Straight lines</option>
+          <option value="monotone">Smooth curve</option>
+          <option value="step">Step line</option>
+          <option value="natural">Natural curve</option>
+        </select>
+      </div>
+
+      <div className="control-group toggle">
+        <label>Fill Area Under Line</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={fillArea}
+            onChange={(e) => setFillArea(e.target.checked)}
+            id="fill-area-toggle"
+          />
+          <label htmlFor="fill-area-toggle" className="slider"></label>
+        </div>
+      </div>
+
+      <div className="control-group toggle">
+        <label>Logarithmic Y Axis</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={logScale}
+            onChange={(e) => setLogScale(e.target.checked)}
+            id="log-scale-toggle"
+          />
+          <label htmlFor="log-scale-toggle" className="slider"></label>
+        </div>
+      </div>
+
+      <div className="control-group">
+        <label>Chart Orientation</label>
+        <select
+          value={orientation}
+          onChange={(e) => setOrientation(e.target.value)}
+        >
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+        </select>
+      </div>
+
+      <div className="control-group section-title">
+        <h3>Font Style</h3>
+      </div>
+
       {/* Font selector */}
       <div className="control-group">
         <label>Font Family</label>
@@ -80,7 +156,31 @@ const General = () => {
         </select>
       </div>
 
+      <div className="control-group">
+        <label>Font Size</label>
+        <input
+          type="number"
+          value={styleOptions.fontSize}
+          onChange={(e) => updateStyleOptions({ fontSize: Number(e.target.value) })}
+          min="8"
+          max="24"
+        />
+      </div>
+
       {/* LABEL FORMATTING - Axis color controls */}
+      <div className="control-group section-title">
+        <h3>Color Settings</h3>
+      </div>
+
+      <div className="control-group">
+        <label>Background Color</label>
+        <input
+          type="color"
+          value={styleOptions.bgColor}
+          onChange={(e) => updateStyleOptions({ bgColor: e.target.value })}
+        />
+      </div>
+
       <div className="control-group">
         <label>X-axis Label Color</label>
         <input
@@ -99,44 +199,6 @@ const General = () => {
         />
       </div>
 
-      <div className="control-group">
-        <label>X-axis Tick Color</label>
-        <input
-          type="color"
-          value={styleOptions.xAxisTickColor}
-          onChange={(e) => updateStyleOptions({ xAxisTickColor: e.target.value })}
-        />
-      </div>
-
-      <div className="control-group">
-        <label>Y-axis Tick Color</label>
-        <input
-          type="color"
-          value={styleOptions.yAxisTickColor}
-          onChange={(e) => updateStyleOptions({ yAxisTickColor: e.target.value })}
-        />
-      </div>
-
-      <div className="control-group">
-        <label>Font Size</label>
-        <input
-          type="number"
-          value={styleOptions.fontSize}
-          onChange={(e) => updateStyleOptions({ fontSize: Number(e.target.value) })}
-          min="8"
-          max="24"
-        />
-      </div>
-
-      <div className="control-group">
-        <label>Background Color</label>
-        <input
-          type="color"
-          value={styleOptions.bgColor}
-          onChange={(e) => updateStyleOptions({ bgColor: e.target.value })}
-        />
-      </div>
-
       <div className="control-group section-title">
         <h3>Axis Range Settings</h3>
       </div>
@@ -145,19 +207,19 @@ const General = () => {
         <label>X-Axis Range</label>
         <div className="range-inputs">
           <input
-            type="number"
+            type="text"
             placeholder="Min"
-            value={axisOptions.xRange.min}
+            value={axisOptions.xRange.min !== null ? axisOptions.xRange.min : ''}
             onChange={(e) => updateAxisOptions({
-              xRange: { ...axisOptions.xRange, min: e.target.value }
+              xRange: { ...axisOptions.xRange, min: e.target.value === '' ? null : e.target.value }
             })}
           />
           <input
-            type="number"
+            type="text"
             placeholder="Max"
-            value={axisOptions.xRange.max}
+            value={axisOptions.xRange.max !== null ? axisOptions.xRange.max : ''}
             onChange={(e) => updateAxisOptions({
-              xRange: { ...axisOptions.xRange, max: e.target.value }
+              xRange: { ...axisOptions.xRange, max: e.target.value === '' ? null : e.target.value }
             })}
           />
         </div>
@@ -186,19 +248,19 @@ const General = () => {
         <label>Y-Axis Range</label>
         <div className="range-inputs">
           <input
-            type="number"
+            type="text"
             placeholder="Min"
-            value={axisOptions.yRange.min}
+            value={axisOptions.yRange.min !== null ? axisOptions.yRange.min : ''}
             onChange={(e) => updateAxisOptions({
-              yRange: { ...axisOptions.yRange, min: e.target.value }
+              yRange: { ...axisOptions.yRange, min: e.target.value === '' ? null : Number(e.target.value) }
             })}
           />
           <input
-            type="number"
+            type="text"
             placeholder="Max"
-            value={axisOptions.yRange.max}
+            value={axisOptions.yRange.max !== null ? axisOptions.yRange.max : ''}
             onChange={(e) => updateAxisOptions({
-              yRange: { ...axisOptions.yRange, max: e.target.value }
+              yRange: { ...axisOptions.yRange, max: e.target.value === '' ? null : Number(e.target.value) }
             })}
           />
         </div>
@@ -223,24 +285,6 @@ const General = () => {
           <option value="50">Every 50 units</option>
           <option value="100">Every 100 units</option>
         </select>
-      </div>
-
-      <div className="control-group toggle">
-        <label>Custom Tick Formatting</label>
-        <div className="toggle-slider">
-          <input
-            type="checkbox"
-            checked={axisOptions.yTicks.tickFormatter === 'custom'}
-            onChange={(e) => updateAxisOptions({
-              yTicks: {
-                ...axisOptions.yTicks,
-                tickFormatter: e.target.checked ? 'custom' : null
-              }
-            })}
-            id="tick-format-toggle"
-          />
-          <label htmlFor="tick-format-toggle" className="slider"></label>
-        </div>
       </div>
     </div>
   );

@@ -1,10 +1,9 @@
 // FILE: ~/Downloads/my work/bizcharts/frontend/src/components/charts/line/LineChartOptions.js
-import React from 'react';
+import React, { useState } from 'react';
 import { useChartContext } from '../../../contexts/ChartContext';
 
 /**
- * LineChartOptions component for line chart specific options
- * This component shows only options specific to line charts
+ * Enhanced LineChartOptions component with premium UI controls
  */
 const LineChartOptions = () => {
   const {
@@ -19,20 +18,22 @@ const LineChartOptions = () => {
     // Line chart specific options
     yAxisKeys,
     styleOptions,
-    orientation,
-    setOrientation,
+    curveType,
+    setCurveType,
+    fillArea,
+    setFillArea,
     logScale,
     setLogScale,
 
-    // Display options
-    updateVisibilityOptions,
-    visibilityOptions
+    // Style options
+    updateStyleOptions
   } = useChartContext();
 
-  // Toggle color picker visibility and manage active color index
-  // This would be handled by a parent component or custom hook in the actual implementation
+  // State for color picker
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [activeSeriesIndex, setActiveSeriesIndex] = useState(null);
 
-  // LINE STYLING - Update line thickness
+  // Update line thickness for a specific series
   const updateLineThickness = (key, thickness) => {
     setLineStyles(prev => ({
       ...prev,
@@ -43,7 +44,7 @@ const LineChartOptions = () => {
     }));
   };
 
-  // LINE STYLING - Update dot size
+  // Update dot size for a specific series
   const updateDotSize = (key, size) => {
     setLineStyles(prev => ({
       ...prev,
@@ -54,52 +55,75 @@ const LineChartOptions = () => {
     }));
   };
 
+  // Update color for a series at a specific index
+  const updateSeriesColor = (index, color) => {
+    const newPalette = [...styleOptions.colorPalette];
+    newPalette[index % newPalette.length] = color;
+    updateStyleOptions({ colorPalette: newPalette });
+    setShowColorPicker(false);
+  };
+
+  // Toggle color picker for a series
+  const toggleColorPicker = (index) => {
+    setActiveSeriesIndex(index === activeSeriesIndex ? null : index);
+    setShowColorPicker(!showColorPicker);
+  };
+
+  // Handle curve type change
+  const handleCurveTypeChange = (e) => {
+    setCurveType(e.target.value);
+  };
+
+  // Get predefined color shades for the palette
+  const colorPresets = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+    '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+    '#4393c3', '#f4a582', '#92c5de', '#ca0020', '#f7f7f7'
+  ];
+
   return (
     <div className="line-chart-options">
       <div className="control-group section-title">
         <h3>Line Chart Options</h3>
       </div>
 
-      {/* Line series styling */}
       <div className="control-group">
-        <label>Line Series Styling</label>
-        <div className="y-axis-list">
-          {yAxisKeys.map((key, index) => (
-            <div key={index} className="y-axis-item">
-              <div
-                className="color-box"
-                style={{ backgroundColor: styleOptions.colorPalette[index % styleOptions.colorPalette.length] }}
-                // onClick would be handled by a color picker from parent component
-              />
-              <span>{key}</span>
+        <label>Line Curve Type</label>
+        <select
+          value={curveType}
+          onChange={handleCurveTypeChange}
+          className="premium-select"
+        >
+          <option value="linear">Straight lines</option>
+          <option value="monotone">Smooth curve</option>
+          <option value="step">Step line</option>
+          <option value="natural">Natural curve</option>
+        </select>
+      </div>
 
-              {/* LINE STYLING - Line thickness control */}
-              <div className="line-controls">
-                <div className="line-thickness">
-                  <label title="Line Thickness">
-                    <span className="line-icon">━</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={lineStyles[key]?.thickness || defaultLineThickness}
-                      onChange={(e) => updateLineThickness(key, e.target.value)}
-                    />
-                  </label>
-                  <label title="Dot Size">
-                    <span className="dot-icon">⚬</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={lineStyles[key]?.dotSize || defaultDotSize}
-                      onChange={(e) => updateDotSize(key, e.target.value)}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-          ))}
+      <div className="control-group toggle">
+        <label>Fill Area Under Line</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={fillArea}
+            onChange={(e) => setFillArea(e.target.checked)}
+            id="fill-area-toggle-options"
+          />
+          <label htmlFor="fill-area-toggle-options" className="slider"></label>
+        </div>
+      </div>
+
+      <div className="control-group toggle">
+        <label>Logarithmic Y Axis</label>
+        <div className="toggle-slider">
+          <input
+            type="checkbox"
+            checked={logScale}
+            onChange={(e) => setLogScale(e.target.checked)}
+            id="log-scale-toggle-options"
+          />
+          <label htmlFor="log-scale-toggle-options" className="slider"></label>
         </div>
       </div>
 
@@ -109,97 +133,157 @@ const LineChartOptions = () => {
       </div>
 
       <div className="control-group">
-        <label>Default Line Thickness</label>
-        <input
-          type="number"
-          value={defaultLineThickness}
-          onChange={(e) => setDefaultLineThickness(Number(e.target.value))}
-          min="1"
-          max="10"
-        />
-      </div>
-
-      <div className="control-group">
-        <label>Default Dot Size</label>
-        <input
-          type="number"
-          value={defaultDotSize}
-          onChange={(e) => setDefaultDotSize(Number(e.target.value))}
-          min="1"
-          max="10"
-        />
-      </div>
-
-      {/* Chart type specific options */}
-      <div className="control-group toggle">
-        <label>Logarithmic Y Axis</label>
-        <div className="toggle-slider">
+        <label>Default Line Thickness: {defaultLineThickness}</label>
+        <div className="slider-container">
           <input
-            type="checkbox"
-            checked={logScale}
-            onChange={(e) => setLogScale(e.target.checked)}
-            id="log-toggle"
+            type="range"
+            min="1"
+            max="10"
+            value={defaultLineThickness}
+            onChange={(e) => setDefaultLineThickness(Number(e.target.value))}
+            className="slider-input"
           />
-          <label htmlFor="log-toggle" className="slider"></label>
+          <div className="slider-value">{defaultLineThickness}</div>
         </div>
       </div>
 
       <div className="control-group">
-        <label>Orientation</label>
-        <select
-          value={orientation}
-          onChange={(e) => setOrientation(e.target.value)}
+        <label>Default Dot Size: {defaultDotSize}</label>
+        <div className="slider-container">
+          <input
+            type="range"
+            min="1"
+            max="10"
+            value={defaultDotSize}
+            onChange={(e) => setDefaultDotSize(Number(e.target.value))}
+            className="slider-input"
+          />
+          <div className="slider-value">{defaultDotSize}</div>
+        </div>
+      </div>
+
+      {/* Line series styling */}
+      <div className="control-group section-title">
+        <h3>Series Styling</h3>
+      </div>
+
+      <div className="series-styling-container">
+        {yAxisKeys.map((key, index) => {
+          const color = styleOptions.colorPalette[index % styleOptions.colorPalette.length];
+          const seriesStyle = lineStyles[key] || {};
+          const thickness = seriesStyle.thickness || defaultLineThickness;
+          const dotSize = seriesStyle.dotSize || defaultDotSize;
+
+          return (
+            <div key={index} className="series-style-card">
+              <div className="series-header">
+                <div
+                  className="color-box large"
+                  style={{ backgroundColor: color }}
+                  onClick={() => toggleColorPicker(index)}
+                  title="Click to change color"
+                />
+                <span className="series-name">{key}</span>
+              </div>
+
+              <div className="series-controls">
+                <div className="control-mini-group">
+                  <label>Line: {thickness}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={thickness}
+                    onChange={(e) => updateLineThickness(key, e.target.value)}
+                    className="slider-input"
+                  />
+                </div>
+                <div className="control-mini-group">
+                  <label>Dot: {dotSize}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={dotSize}
+                    onChange={(e) => updateDotSize(key, e.target.value)}
+                    className="slider-input"
+                  />
+                </div>
+              </div>
+
+              {/* Color picker popover */}
+              {showColorPicker && activeSeriesIndex === index && (
+                <div className="color-picker-popover">
+                  <div className="color-picker-header">
+                    <h4>Choose Color for {key}</h4>
+                    <button
+                      className="close-button"
+                      onClick={() => setShowColorPicker(false)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => updateSeriesColor(index, e.target.value)}
+                    className="color-picker-input"
+                  />
+                  <div className="color-picker-presets">
+                    {colorPresets.map((presetColor, i) => (
+                      <div
+                        key={i}
+                        className="color-preset"
+                        style={{ backgroundColor: presetColor }}
+                        onClick={() => updateSeriesColor(index, presetColor)}
+                        title={presetColor}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Color palette */}
+      <div className="control-group section-title">
+        <h3>Color Palette</h3>
+      </div>
+
+      <div className="color-palette-container">
+        {styleOptions.colorPalette.map((color, index) => (
+          <div key={index} className="color-palette-item">
+            <div
+              className="color-box large"
+              style={{ backgroundColor: color }}
+              title={color}
+            />
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => {
+                const newPalette = [...styleOptions.colorPalette];
+                newPalette[index] = e.target.value;
+                updateStyleOptions({ colorPalette: newPalette });
+              }}
+              className="color-input"
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Reset palette button */}
+      <div className="control-group">
+        <button
+          className="reset-palette-btn"
+          onClick={() => updateStyleOptions({
+            colorPalette: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+          })}
         >
-          <option value="horizontal">Horizontal</option>
-          <option value="vertical">Vertical</option>
-        </select>
-      </div>
-
-      <div className="control-group toggle">
-        <label>Show values on Graph</label>
-        <div className="toggle-slider">
-          <input
-            type="checkbox"
-            checked={visibilityOptions.showValues}
-            onChange={(e) => updateVisibilityOptions({ showValues: e.target.checked })}
-            id="values-toggle"
-          />
-          <label htmlFor="values-toggle" className="slider"></label>
-        </div>
-      </div>
-
-      {/* Line Curve Type - A common line chart option */}
-      <div className="control-group">
-        <label>Line Curve Type</label>
-        <select
-          value="monotone" // This would be stored in context in a real implementation
-          onChange={(e) => {
-            // This would update a lineOptions or similar setting in the context
-            console.log("Set curve type to:", e.target.value);
-          }}
-        >
-          <option value="linear">Straight lines</option>
-          <option value="monotone">Smooth curve</option>
-          <option value="step">Step line</option>
-          <option value="natural">Natural curve</option>
-        </select>
-      </div>
-
-      {/* Fill Area - Another common line chart option */}
-      <div className="control-group toggle">
-        <label>Fill Area Under Line</label>
-        <div className="toggle-slider">
-          <input
-            type="checkbox"
-            checked={false} // This would be stored in context in a real implementation
-            onChange={(e) => {
-              // This would update a lineOptions or similar setting in the context
-              console.log("Set fill area to:", e.target.checked);
-            }}
-            id="fill-area-toggle"
-          />
-          <label htmlFor="fill-area-toggle" className="slider"></label>
-        </div>
+          Reset Color Palette
+        </button>
       </div>
     </div>
   );
