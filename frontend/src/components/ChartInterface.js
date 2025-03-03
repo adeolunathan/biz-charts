@@ -1,8 +1,5 @@
 // FILE: ~/Downloads/my work/bizcharts/frontend/src/components/ChartInterface.js
-// Search for "Y-AXIS SELECTOR" to find the modified section for column selection
-// Search for "LEGEND FORMATTING" to find new legend controls
-// Search for "LINE STYLING" to find line thickness controls
-// Search for "EXPORT FUNCTIONS" to find enhanced export functionality
+// Enhanced version with fixes for legend display, full screen mode, and improved exports
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -21,6 +18,19 @@ const DEFAULT_DATA = [
   { x: 'C', y: 3 },
   { x: 'D', y: 4 },
   { x: 'E', y: 5 }
+];
+
+// Available fonts for the font selector
+const AVAILABLE_FONTS = [
+  { name: 'System Default', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif' },
+  { name: 'Arial', value: 'Arial, sans-serif' },
+  { name: 'Helvetica', value: 'Helvetica, Arial, sans-serif' },
+  { name: 'Georgia', value: 'Georgia, serif' },
+  { name: 'Times New Roman', value: 'Times New Roman, Times, serif' },
+  { name: 'Courier New', value: 'Courier New, monospace' },
+  { name: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+  { name: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
+  { name: 'Trebuchet MS', value: 'Trebuchet MS, sans-serif' },
 ];
 
 const ChartInterface = () => {
@@ -44,6 +54,7 @@ const ChartInterface = () => {
   const [xAxisTitle, setXAxisTitle] = useState('');
   const [yAxisTitle, setYAxisTitle] = useState('');
   const [fontSize, setFontSize] = useState(12);
+  const [fontFamily, setFontFamily] = useState(AVAILABLE_FONTS[0].value);
   const [bgColor, setBgColor] = useState('#ffffff');
   const [showLegend, setShowLegend] = useState(true);
   const [logScale, setLogScale] = useState(false);
@@ -52,6 +63,7 @@ const ChartInterface = () => {
   const [sortOrder, setSortOrder] = useState('default');
   const [yAxisRange, setYAxisRange] = useState({ min: '', max: '' });
   const [axisStep, setAxisStep] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Grid settings
   const [showGridX, setShowGridX] = useState(true);
@@ -76,7 +88,7 @@ const ChartInterface = () => {
   const [legendPosition, setLegendPosition] = useState('bottom');
   const [legendLayout, setLegendLayout] = useState('horizontal');
   const [legendBgColor, setLegendBgColor] = useState('transparent');
-  const [legendTextColor, setLegendTextColor] = useState('#333333');
+  // Removed legendTextColor as legends inherit line colors
 
   // LABEL FORMATTING
   const [xAxisLabelColor, setXAxisLabelColor] = useState('#333333');
@@ -95,6 +107,7 @@ const ChartInterface = () => {
 
   // Refs
   const chartRef = useRef(null);
+  const chartContainerRef = useRef(null);
   const colorPickerRef = useRef(null);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [activeColorIndex, setActiveColorIndex] = useState(null);
@@ -142,6 +155,18 @@ const ChartInterface = () => {
     });
     setLineStyles(newLineStyles);
   }, [yAxisKeys, defaultLineThickness, defaultDotSize]);
+
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Handle cell click in the data grid
   const handleCellClick = (rowIndex, columnName) => {
@@ -511,16 +536,75 @@ const ChartInterface = () => {
     }
   };
 
-  // EXPORT FUNCTIONS - Export chart as PNG
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // Enter fullscreen
+      if (chartContainerRef.current.requestFullscreen) {
+        chartContainerRef.current.requestFullscreen();
+      } else if (chartContainerRef.current.webkitRequestFullscreen) {
+        chartContainerRef.current.webkitRequestFullscreen();
+      } else if (chartContainerRef.current.msRequestFullscreen) {
+        chartContainerRef.current.msRequestFullscreen();
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+  };
+
+  // EXPORT FUNCTIONS - Export chart as PNG with high resolution
   const exportPNG = () => {
     if (chartRef.current) {
+      // Hide the range slider during capture
+      const rangeSlider = chartRef.current.querySelector('.range-slider-container');
+      if (rangeSlider) {
+        rangeSlider.style.display = 'none';
+      }
+
+      // Temporary increase bottom margin if legend is at the bottom
+      const chartElement = chartRef.current.querySelector('.recharts-wrapper');
+      let originalMarginBottom = null;
+
+      if (chartElement && legendPosition === 'bottom') {
+        originalMarginBottom = chartElement.style.marginBottom;
+        chartElement.style.marginBottom = '50px'; // Add extra space to prevent overlap
+      }
+
+      // Capture with high resolution
       html2canvas(chartRef.current, {
         backgroundColor: bgColor,
-        scale: 2 // Higher quality
+        scale: 4, // Higher quality (quadruple resolution)
+        useCORS: true,
+        logging: false,
+        ignoreElements: (element) => {
+          // Ignore scrollbars and range slider
+          return element.className && (
+            element.className.includes('range-slider') ||
+            element.className.includes('scrollbar')
+          );
+        }
       }).then(canvas => {
+        // Restore the range slider display
+        if (rangeSlider) {
+          rangeSlider.style.display = 'block';
+        }
+
+        // Restore original margin if modified
+        if (chartElement && originalMarginBottom !== null) {
+          chartElement.style.marginBottom = originalMarginBottom;
+        }
+
+        // Create and download the image
         canvas.toBlob(blob => {
           saveAs(blob, `${chartTitle || 'chart'}.png`);
-        });
+        }, 'image/png', 1.0);
       });
     }
   };
@@ -528,9 +612,26 @@ const ChartInterface = () => {
   // EXPORT FUNCTIONS - Export chart as SVG
   const exportSVG = () => {
     if (chartRef.current) {
-      // For SVG export, we'd need a more complex implementation or a library
-      // This is a placeholder alert
-      alert('SVG export would be implemented with a library like svg-crowbar or saveSvgAsPng');
+      // Find SVG element
+      const svgElement = chartRef.current.querySelector('svg');
+      if (svgElement) {
+        // Clone the SVG to avoid modifying the displayed one
+        const svgClone = svgElement.cloneNode(true);
+
+        // Set background
+        svgClone.setAttribute('style', `background-color: ${bgColor};`);
+
+        // Remove range slider and other UI elements
+        const uiElements = svgClone.querySelectorAll('.range-slider-container, .scrollbar');
+        uiElements.forEach(el => el.remove());
+
+        // Convert to string
+        const svgString = new XMLSerializer().serializeToString(svgClone);
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        saveAs(blob, `${chartTitle || 'chart'}.svg`);
+      } else {
+        alert('SVG export failed: SVG element not found');
+      }
     }
   };
 
@@ -616,166 +717,177 @@ const ChartInterface = () => {
   };
 
   return (
-    <div className="chart-interface">
-      <div className="interface-header">
-        <div className="logo">BizCharts</div>
-        <nav className="main-nav">
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#contact">Contact</a>
-          <a href="#more">More</a>
-        </nav>
-        <div className="view-all">
-          <button className="view-all-btn">View all charts</button>
-        </div>
-      </div>
-
-      <div className="chart-title-section">
-        <h1>
-          <span className="highlight">Line</span> Chart Maker
-        </h1>
-        <p className="subtitle">Transform Your Data into Stunning Line Graph for free!</p>
-      </div>
-
-      <div className="interface-content">
-        {/* Data Panel */}
-        <div className="data-panel">
-          <div className="panel-header">
-            <h2>Data</h2>
-            <button className="csv-import-btn" onClick={() => document.getElementById('csv-upload').click()}>
-              <span className="icon">↑</span> CSV
-            </button>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv"
-              onChange={handleCsvImport}
-              style={{ display: 'none' }}
-            />
+    <div className={`chart-interface ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+      {!isFullscreen && (
+        <div className="interface-header">
+          <div className="logo">BizCharts</div>
+          <nav className="main-nav">
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#contact">Contact</a>
+            <a href="#more">More</a>
+          </nav>
+          <div className="view-all">
+            <button className="view-all-btn">View all charts</button>
           </div>
+        </div>
+      )}
 
-          <div className="data-grid-container">
-            <table className="data-grid">
-              <thead>
-                <tr>
-                  {chartData.length > 0 && Object.keys(chartData[0]).map((column, index) => (
-                    <th
-                      key={index}
-                      className={column === xAxisKey ? 'x-axis-column' : ''}
-                    >
-                      <div className="header-cell">
-                        {editingHeader === column ? (
-                          <input
-                            type="text"
-                            value={headerEditValue}
-                            onChange={handleHeaderChange}
-                            onBlur={handleHeaderBlur}
-                            onKeyDown={(e) => handleKeyDown(e, 'header')}
-                            autoFocus
-                            className="header-input"
-                          />
-                        ) : (
-                          <>
-                            <span
-                              className="header-text"
-                              onClick={() => handleHeaderClick(column)}
-                            >
-                              {column}
-                            </span>
-                            <button
-                              className="delete-column-btn"
-                              onClick={() => deleteColumn(column)}
-                              title="Delete column"
-                            >
-                              ×
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {chartData.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {Object.keys(row).map((column, colIndex) => (
-                      <td
-                        key={colIndex}
-                        className={`
-                          ${activeCell && activeCell.rowIndex === rowIndex && activeCell.columnName === column ? 'active-cell' : ''}
-                          ${column === xAxisKey ? 'x-axis-column' : ''}
-                        `}
-                        onClick={() => handleCellClick(rowIndex, column)}
+      {!isFullscreen && (
+        <div className="chart-title-section">
+          <h1>
+            <span className="highlight">Line</span> Chart Maker
+          </h1>
+          <p className="subtitle">Transform Your Data into Stunning Line Graph for free!</p>
+        </div>
+      )}
+
+      <div className="interface-content" style={{ fontFamily }}>
+        {/* Data Panel */}
+        {!isFullscreen && (
+          <div className="data-panel">
+            <div className="panel-header">
+              <h2>Data</h2>
+              <button className="csv-import-btn" onClick={() => document.getElementById('csv-upload').click()}>
+                <span className="icon">↑</span> CSV
+              </button>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                onChange={handleCsvImport}
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            <div className="data-grid-container">
+              <table className="data-grid">
+                <thead>
+                  <tr>
+                    {chartData.length > 0 && Object.keys(chartData[0]).map((column, index) => (
+                      <th
+                        key={index}
+                        className={column === xAxisKey ? 'x-axis-column' : ''}
                       >
-                        {activeCell && activeCell.rowIndex === rowIndex && activeCell.columnName === column ? (
-                          <input
-                            type="text"
-                            value={editValue}
-                            onChange={handleCellChange}
-                            onBlur={handleCellBlur}
-                            onKeyDown={(e) => handleKeyDown(e, 'cell')}
-                            autoFocus
-                            className="cell-input"
-                          />
-                        ) : (
-                          <div className="cell-content">{row[column] !== undefined ? row[column] : ''}</div>
-                        )}
-                      </td>
+                        <div className="header-cell">
+                          {editingHeader === column ? (
+                            <input
+                              type="text"
+                              value={headerEditValue}
+                              onChange={handleHeaderChange}
+                              onBlur={handleHeaderBlur}
+                              onKeyDown={(e) => handleKeyDown(e, 'header')}
+                              autoFocus
+                              className="header-input"
+                            />
+                          ) : (
+                            <>
+                              <span
+                                className="header-text"
+                                onClick={() => handleHeaderClick(column)}
+                              >
+                                {column}
+                              </span>
+                              <button
+                                className="delete-column-btn"
+                                onClick={() => deleteColumn(column)}
+                                title="Delete column"
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </th>
                     ))}
-                    <td className="row-action-cell">
-                      <button
-                        className="delete-row-btn"
-                        onClick={() => deleteRow(rowIndex)}
-                        title="Delete row"
-                      >
-                        ×
-                      </button>
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {chartData.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {Object.keys(row).map((column, colIndex) => (
+                        <td
+                          key={colIndex}
+                          className={`
+                            ${activeCell && activeCell.rowIndex === rowIndex && activeCell.columnName === column ? 'active-cell' : ''}
+                            ${column === xAxisKey ? 'x-axis-column' : ''}
+                          `}
+                          onClick={() => handleCellClick(rowIndex, column)}
+                        >
+                          {activeCell && activeCell.rowIndex === rowIndex && activeCell.columnName === column ? (
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={handleCellChange}
+                              onBlur={handleCellBlur}
+                              onKeyDown={(e) => handleKeyDown(e, 'cell')}
+                              autoFocus
+                              className="cell-input"
+                            />
+                          ) : (
+                            <div className="cell-content">{row[column] !== undefined ? row[column] : ''}</div>
+                          )}
+                        </td>
+                      ))}
+                      <td className="row-action-cell">
+                        <button
+                          className="delete-row-btn"
+                          onClick={() => deleteRow(rowIndex)}
+                          title="Delete row"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            <div className="grid-actions">
-              <button onClick={addRow}>Add Row</button>
-              <button onClick={addColumn}>Add Column</button>
+              <div className="grid-actions">
+                <button onClick={addRow}>Add Row</button>
+                <button onClick={addColumn}>Add Column</button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Graph Panel */}
-        <div className="graph-panel">
+        <div className={`graph-panel ${isFullscreen ? 'fullscreen' : ''}`} ref={chartContainerRef}>
           <div className="panel-header">
             <h2>Graph</h2>
             <div className="export-options">
+              <button className="fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "Exit Full Screen" : "Full Screen"}>
+                <span className="icon">{isFullscreen ? "⊠" : "⊞"}</span>
+              </button>
               <button className="embed-btn" onClick={getEmbedCode}>
                 <span className="icon">&lt;/&gt;</span> Embed
               </button>
-              <button className="image-btn" onClick={() => {
-                const dropdown = document.getElementById('export-dropdown');
-                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-              }}>
-                <span className="icon">↓</span> Export
-              </button>
-              <div id="export-dropdown" className="export-dropdown">
-                <button onClick={exportPNG}>PNG Image</button>
-                <button onClick={exportSVG}>SVG Vector</button>
-                <button onClick={exportCSV}>CSV Data</button>
-                <button onClick={exportPDF}>PDF Document</button>
+              <div className="export-dropdown-container">
+                <button className="image-btn" onClick={() => {
+                  const dropdown = document.getElementById('export-dropdown');
+                  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                }}>
+                  <span className="icon">↓</span> Export
+                </button>
+                <div id="export-dropdown" className="export-dropdown">
+                  <button onClick={exportPNG}>PNG Image</button>
+                  <button onClick={exportSVG}>SVG Vector</button>
+                  <button onClick={exportCSV}>CSV Data</button>
+                  <button onClick={exportPDF}>PDF Document</button>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="chart-container" ref={chartRef} style={{ backgroundColor: bgColor }}>
             {chartTitle && (
-              <div className="chart-title-display">
+              <div className="chart-title-display" style={{ fontFamily }}>
                 {chartTitle}
               </div>
             )}
 
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={isFullscreen ? 800 : 350}>
                 {orientation === 'vertical' ? (
                   <LineChart
                     data={getVisibleData()}
@@ -783,9 +895,10 @@ const ChartInterface = () => {
                       top: chartTitle ? 10 : 30,
                       right: 30,
                       left: 20,
-                      bottom: legendPosition === 'bottom' ? 40 : 30
+                      bottom: legendPosition === 'bottom' ? 70 : 30 // Increased bottom margin
                     }}
                     layout="vertical"
+                    style={{ fontFamily }}
                   >
                     {(showGridX || showGridY) && (
                       <CartesianGrid
@@ -802,10 +915,11 @@ const ChartInterface = () => {
                         label={{
                           value: yAxisTitle,
                           position: 'bottom',
-                          style: { fontSize, fill: yAxisLabelColor }
+                          offset: 20, // Increased offset
+                          style: { fontSize, fill: yAxisLabelColor, fontFamily }
                         }}
-                        tick={{ fontSize, fill: yAxisTickColor }}
-                        height={50}
+                        tick={{ fontSize, fill: yAxisTickColor, fontFamily }}
+                        height={60} // Increased height
                         domain={[
                           yAxisRange.min !== '' ? Number(yAxisRange.min) : 'auto',
                           yAxisRange.max !== '' ? Number(yAxisRange.max) : 'auto'
@@ -822,14 +936,15 @@ const ChartInterface = () => {
                           value: xAxisTitle,
                           angle: -90,
                           position: 'insideLeft',
-                          style: { fontSize, fill: xAxisLabelColor }
+                          style: { fontSize, fill: xAxisLabelColor, fontFamily }
                         }}
-                        tick={{ fontSize, fill: xAxisTickColor }}
+                        tick={{ fontSize, fill: xAxisTickColor, fontFamily }}
                         width={100}
                       />
                     )}
 
                     <Tooltip
+                      contentStyle={{ fontFamily }}
                       formatter={(value) => {
                         let formattedValue = value;
 
@@ -859,10 +974,10 @@ const ChartInterface = () => {
                         layout={legendLayout}
                         wrapperStyle={{
                           backgroundColor: legendBgColor,
-                          color: legendTextColor,
                           borderRadius: '4px',
-                          padding: '5px',
-                          marginTop: legendPosition === 'bottom' ? '20px' : '0'
+                          padding: '8px',
+                          marginTop: legendPosition === 'bottom' ? '20px' : '0',
+                          fontFamily
                         }}
                       />
                     )}
@@ -884,7 +999,8 @@ const ChartInterface = () => {
                         label={showValues ? {
                           position: 'right',
                           fontSize,
-                          fill: colorPalette[index % colorPalette.length]
+                          fill: colorPalette[index % colorPalette.length],
+                          fontFamily
                         } : false}
                       />
                     ))}
@@ -896,8 +1012,9 @@ const ChartInterface = () => {
                       top: chartTitle ? 10 : 30,
                       right: 30,
                       left: 20,
-                      bottom: legendPosition === 'bottom' ? 40 : 30
+                      bottom: legendPosition === 'bottom' ? 70 : 30 // Increased bottom margin
                     }}
+                    style={{ fontFamily }}
                   >
                     {(showGridX || showGridY) && (
                       <CartesianGrid
@@ -914,10 +1031,11 @@ const ChartInterface = () => {
                         label={{
                           value: xAxisTitle,
                           position: 'bottom',
-                          style: { fontSize, fill: xAxisLabelColor }
+                          offset: 20, // Increased offset
+                          style: { fontSize, fill: xAxisLabelColor, fontFamily }
                         }}
-                        tick={{ fontSize, fill: xAxisTickColor }}
-                        height={50}
+                        tick={{ fontSize, fill: xAxisTickColor, fontFamily }}
+                        height={60} // Increased height
                       />
                     )}
 
@@ -927,9 +1045,9 @@ const ChartInterface = () => {
                           value: yAxisTitle,
                           angle: -90,
                           position: 'left',
-                          style: { fontSize, fill: yAxisLabelColor }
+                          style: { fontSize, fill: yAxisLabelColor, fontFamily }
                         }}
-                        tick={{ fontSize, fill: yAxisTickColor }}
+                        tick={{ fontSize, fill: yAxisTickColor, fontFamily }}
                         width={60}
                         domain={[
                           yAxisRange.min !== '' ? Number(yAxisRange.min) : 'auto',
@@ -940,6 +1058,7 @@ const ChartInterface = () => {
                     )}
 
                     <Tooltip
+                      contentStyle={{ fontFamily }}
                       formatter={(value) => {
                         let formattedValue = value;
 
@@ -969,10 +1088,10 @@ const ChartInterface = () => {
                         layout={legendLayout}
                         wrapperStyle={{
                           backgroundColor: legendBgColor,
-                          color: legendTextColor,
                           borderRadius: '4px',
-                          padding: '5px',
-                          marginTop: legendPosition === 'bottom' ? '20px' : '0'
+                          padding: '8px',
+                          marginTop: legendPosition === 'bottom' ? '20px' : '0',
+                          fontFamily
                         }}
                       />
                     )}
@@ -994,7 +1113,8 @@ const ChartInterface = () => {
                         label={showValues ? {
                           position: 'top',
                           fontSize,
-                          fill: colorPalette[index % colorPalette.length]
+                          fill: colorPalette[index % colorPalette.length],
+                          fontFamily
                         } : false}
                       />
                     ))}
@@ -1005,541 +1125,551 @@ const ChartInterface = () => {
               <div className="no-data-message">No data available</div>
             )}
 
-            <div className="range-slider-container">
-              <input
-                type="range"
-                min="1"
-                max="100"
-                value={rangeValue}
-                onChange={handleRangeChange}
-                className="range-slider"
-              />
-              <div className="range-slider-label">
-                Showing {visibleRows.start + 1} to {Math.min(visibleRows.end, chartData.length)} of {chartData.length} rows
+            {!isFullscreen && (
+              <div className="range-slider-container">
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={rangeValue}
+                  onChange={handleRangeChange}
+                  className="range-slider"
+                />
+                <div className="range-slider-label">
+                  Showing {visibleRows.start + 1} to {Math.min(visibleRows.end, chartData.length)} of {chartData.length} rows
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Customizations Panel */}
-        <div className="customizations-panel">
-          <div className="panel-header">
-            <h2>Customizations</h2>
-          </div>
+        {!isFullscreen && (
+          <div className="customizations-panel">
+            <div className="panel-header">
+              <h2>Customizations</h2>
+            </div>
 
-          <div className="tabs">
-            <button
-              className={`tab-btn ${activeTab === 'fields' ? 'active' : ''}`}
-              onClick={() => setActiveTab('fields')}
-            >
-              Fields
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'options' ? 'active' : ''}`}
-              onClick={() => setActiveTab('options')}
-            >
-              Options
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'format' ? 'active' : ''}`}
-              onClick={() => setActiveTab('format')}
-            >
-              Format
-            </button>
-          </div>
+            <div className="tabs">
+              <button
+                className={`tab-btn ${activeTab === 'fields' ? 'active' : ''}`}
+                onClick={() => setActiveTab('fields')}
+              >
+                Fields
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'options' ? 'active' : ''}`}
+                onClick={() => setActiveTab('options')}
+              >
+                Options
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'format' ? 'active' : ''}`}
+                onClick={() => setActiveTab('format')}
+              >
+                Format
+              </button>
+            </div>
 
-          <div className="tab-content">
-            {activeTab === 'fields' && (
-              <div className="fields-tab">
-                <div className="control-group">
-                  <label>X-Axis</label>
-                  <select
-                    value={xAxisKey}
-                    onChange={(e) => {
-                      const newXKey = e.target.value;
-                      setXAxisKey(newXKey);
+            <div className="tab-content">
+              {activeTab === 'fields' && (
+                <div className="fields-tab">
+                  <div className="control-group">
+                    <label>X-Axis</label>
+                    <select
+                      value={xAxisKey}
+                      onChange={(e) => {
+                        const newXKey = e.target.value;
+                        setXAxisKey(newXKey);
 
-                      // Update Y-axis keys to exclude new X-axis
-                      setYAxisKeys(yAxisKeys.filter(key => key !== newXKey));
-                    }}
-                  >
-                    {chartData.length > 0 && Object.keys(chartData[0]).map((column, index) => (
-                      <option key={index} value={column}>{column}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="control-group">
-                  <label>Y-Axis Series</label>
-                  <div className="y-axis-list">
-                    {yAxisKeys.map((key, index) => (
-                      <div key={index} className="y-axis-item">
-                        <div
-                          className="color-box"
-                          style={{ backgroundColor: colorPalette[index % colorPalette.length] }}
-                          onClick={() => toggleColorPicker(index)}
-                        ></div>
-                        <span>{key}</span>
-
-                        {/* LINE STYLING - Line thickness control */}
-                        <div className="line-controls">
-                          <div className="line-thickness">
-                            <label title="Line Thickness">
-                              <span className="line-icon">━</span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="10"
-                                value={lineStyles[key]?.thickness || defaultLineThickness}
-                                onChange={(e) => updateLineThickness(key, e.target.value)}
-                              />
-                            </label>
-                            <label title="Dot Size">
-                              <span className="dot-icon">⚬</span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="10"
-                                value={lineStyles[key]?.dotSize || defaultDotSize}
-                                onChange={(e) => updateDotSize(key, e.target.value)}
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        <button
-                          className="remove-y-axis"
-                          onClick={() => setYAxisKeys(yAxisKeys.filter(k => k !== key))}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    <button className="add-y-axis" onClick={openYAxisSelector}>+ Y-Axis</button>
-                  </div>
-                </div>
-
-                <div className="control-group section-title">
-                  <h3>Axes & Grid</h3>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show X Axis</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showXAxis}
-                      onChange={(e) => setShowXAxis(e.target.checked)}
-                      id="x-axis-toggle"
-                    />
-                    <label htmlFor="x-axis-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show Y Axis</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showYAxis}
-                      onChange={(e) => setShowYAxis(e.target.checked)}
-                      id="y-axis-toggle"
-                    />
-                    <label htmlFor="y-axis-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show Horizontal Grid Lines</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showGridX}
-                      onChange={(e) => setShowGridX(e.target.checked)}
-                      id="grid-x-toggle"
-                    />
-                    <label htmlFor="grid-x-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show Vertical Grid Lines</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showGridY}
-                      onChange={(e) => setShowGridY(e.target.checked)}
-                      id="grid-y-toggle"
-                    />
-                    <label htmlFor="grid-y-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                {/* LEGEND FORMATTING - Legend controls */}
-                <div className="control-group section-title">
-                  <h3>Legend</h3>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show Legend</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showLegend}
-                      onChange={(e) => setShowLegend(e.target.checked)}
-                      id="legend-toggle"
-                    />
-                    <label htmlFor="legend-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                {showLegend && (
-                  <>
-                    <div className="control-group">
-                      <label>Legend Position</label>
-                      <select
-                        value={legendPosition}
-                        onChange={(e) => setLegendPosition(e.target.value)}
-                      >
-                        <option value="bottom">Bottom</option>
-                        <option value="top">Top</option>
-                      </select>
-                    </div>
-
-                    <div className="control-group">
-                      <label>Legend Layout</label>
-                      <select
-                        value={legendLayout}
-                        onChange={(e) => setLegendLayout(e.target.value)}
-                      >
-                        <option value="horizontal">Horizontal</option>
-                        <option value="vertical">Vertical</option>
-                      </select>
-                    </div>
-
-                    <div className="control-group">
-                      <label>Legend Background</label>
-                      <input
-                        type="color"
-                        value={legendBgColor === 'transparent' ? '#ffffff' : legendBgColor}
-                        onChange={(e) => setLegendBgColor(e.target.value)}
-                      />
-                      <div className="color-with-toggle">
-                        <label className="checkbox-container">
-                          <input
-                            type="checkbox"
-                            checked={legendBgColor !== 'transparent'}
-                            onChange={(e) => setLegendBgColor(e.target.checked ? '#ffffff' : 'transparent')}
-                          />
-                          Show background
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="control-group">
-                      <label>Legend Text Color</label>
-                      <input
-                        type="color"
-                        value={legendTextColor}
-                        onChange={(e) => setLegendTextColor(e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {colorPickerVisible && (
-                  <div className="color-picker-container" ref={colorPickerRef}>
-                    <div className="color-picker-header">
-                      <h3>Choose Color</h3>
-                      <button onClick={() => setColorPickerVisible(false)}>×</button>
-                    </div>
-                    <div className="color-grid">
-                      {[
-                        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-                        '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
-                        '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
-                        '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'
-                      ].map((color, i) => (
-                        <div
-                          key={i}
-                          className="color-option"
-                          style={{ backgroundColor: color }}
-                          onClick={() => changeColor(activeColorIndex, color)}
-                        ></div>
+                        // Update Y-axis keys to exclude new X-axis
+                        setYAxisKeys(yAxisKeys.filter(key => key !== newXKey));
+                      }}
+                    >
+                      {chartData.length > 0 && Object.keys(chartData[0]).map((column, index) => (
+                        <option key={index} value={column}>{column}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Y-Axis Series</label>
+                    <div className="y-axis-list">
+                      {yAxisKeys.map((key, index) => (
+                        <div key={index} className="y-axis-item">
+                          <div
+                            className="color-box"
+                            style={{ backgroundColor: colorPalette[index % colorPalette.length] }}
+                            onClick={() => toggleColorPicker(index)}
+                          ></div>
+                          <span>{key}</span>
+
+                          {/* LINE STYLING - Line thickness control */}
+                          <div className="line-controls">
+                            <div className="line-thickness">
+                              <label title="Line Thickness">
+                                <span className="line-icon">━</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={lineStyles[key]?.thickness || defaultLineThickness}
+                                  onChange={(e) => updateLineThickness(key, e.target.value)}
+                                />
+                              </label>
+                              <label title="Dot Size">
+                                <span className="dot-icon">⚬</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={lineStyles[key]?.dotSize || defaultDotSize}
+                                  onChange={(e) => updateDotSize(key, e.target.value)}
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          <button
+                            className="remove-y-axis"
+                            onClick={() => setYAxisKeys(yAxisKeys.filter(k => k !== key))}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <button className="add-y-axis" onClick={openYAxisSelector}>+ Y-Axis</button>
                     </div>
-                    <div className="custom-color">
-                      <label>Custom:</label>
+                  </div>
+
+                  <div className="control-group section-title">
+                    <h3>Axes & Grid</h3>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show X Axis</label>
+                    <div className="toggle-slider">
                       <input
-                        type="color"
-                        value={colorPalette[activeColorIndex] || '#000000'}
-                        onChange={(e) => changeColor(activeColorIndex, e.target.value)}
+                        type="checkbox"
+                        checked={showXAxis}
+                        onChange={(e) => setShowXAxis(e.target.checked)}
+                        id="x-axis-toggle"
+                      />
+                      <label htmlFor="x-axis-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show Y Axis</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={showYAxis}
+                        onChange={(e) => setShowYAxis(e.target.checked)}
+                        id="y-axis-toggle"
+                      />
+                      <label htmlFor="y-axis-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show Horizontal Grid Lines</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={showGridX}
+                        onChange={(e) => setShowGridX(e.target.checked)}
+                        id="grid-x-toggle"
+                      />
+                      <label htmlFor="grid-x-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show Vertical Grid Lines</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={showGridY}
+                        onChange={(e) => setShowGridY(e.target.checked)}
+                        id="grid-y-toggle"
+                      />
+                      <label htmlFor="grid-y-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  {/* LEGEND FORMATTING - Legend controls */}
+                  <div className="control-group section-title">
+                    <h3>Legend</h3>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show Legend</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={showLegend}
+                        onChange={(e) => setShowLegend(e.target.checked)}
+                        id="legend-toggle"
+                      />
+                      <label htmlFor="legend-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  {showLegend && (
+                    <>
+                      <div className="control-group">
+                        <label>Legend Position</label>
+                        <select
+                          value={legendPosition}
+                          onChange={(e) => setLegendPosition(e.target.value)}
+                        >
+                          <option value="bottom">Bottom</option>
+                          <option value="top">Top</option>
+                        </select>
+                      </div>
+
+                      <div className="control-group">
+                        <label>Legend Layout</label>
+                        <select
+                          value={legendLayout}
+                          onChange={(e) => setLegendLayout(e.target.value)}
+                        >
+                          <option value="horizontal">Horizontal</option>
+                          <option value="vertical">Vertical</option>
+                        </select>
+                      </div>
+
+                      <div className="control-group">
+                        <label>Legend Background</label>
+                        <input
+                          type="color"
+                          value={legendBgColor === 'transparent' ? '#ffffff' : legendBgColor}
+                          onChange={(e) => setLegendBgColor(e.target.value)}
+                        />
+                        <div className="color-with-toggle">
+                          <label className="checkbox-container">
+                            <input
+                              type="checkbox"
+                              checked={legendBgColor !== 'transparent'}
+                              onChange={(e) => setLegendBgColor(e.target.checked ? '#ffffff' : 'transparent')}
+                            />
+                            Show background
+                          </label>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {colorPickerVisible && (
+                    <div className="color-picker-container" ref={colorPickerRef}>
+                      <div className="color-picker-header">
+                        <h3>Choose Color</h3>
+                        <button onClick={() => setColorPickerVisible(false)}>×</button>
+                      </div>
+                      <div className="color-grid">
+                        {[
+                          '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                          '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+                          '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
+                          '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
+                          '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'
+                        ].map((color, i) => (
+                          <div
+                            key={i}
+                            className="color-option"
+                            style={{ backgroundColor: color }}
+                            onClick={() => changeColor(activeColorIndex, color)}
+                          ></div>
+                        ))}
+                      </div>
+                      <div className="custom-color">
+                        <label>Custom:</label>
+                        <input
+                          type="color"
+                          value={colorPalette[activeColorIndex] || '#000000'}
+                          onChange={(e) => changeColor(activeColorIndex, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'options' && (
+                <div className="options-tab">
+                  <div className="control-group">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={chartTitle}
+                      onChange={(e) => setChartTitle(e.target.value)}
+                      placeholder="Graph Title"
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>X-axis title</label>
+                    <input
+                      type="text"
+                      value={xAxisTitle}
+                      onChange={(e) => setXAxisTitle(e.target.value)}
+                      placeholder="X-axis title"
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Y-axis title</label>
+                    <input
+                      type="text"
+                      value={yAxisTitle}
+                      onChange={(e) => setYAxisTitle(e.target.value)}
+                      placeholder="Y-axis title"
+                    />
+                  </div>
+
+                  {/* Font selector */}
+                  <div className="control-group">
+                    <label>Font Family</label>
+                    <select
+                      value={fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value)}
+                    >
+                      {AVAILABLE_FONTS.map((font, index) => (
+                        <option key={index} value={font.value} style={{ fontFamily: font.value }}>
+                          {font.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* LABEL FORMATTING - Axis color controls */}
+                  <div className="control-group">
+                    <label>X-axis Label Color</label>
+                    <input
+                      type="color"
+                      value={xAxisLabelColor}
+                      onChange={(e) => setXAxisLabelColor(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Y-axis Label Color</label>
+                    <input
+                      type="color"
+                      value={yAxisLabelColor}
+                      onChange={(e) => setYAxisLabelColor(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>X-axis Tick Color</label>
+                    <input
+                      type="color"
+                      value={xAxisTickColor}
+                      onChange={(e) => setXAxisTickColor(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Y-axis Tick Color</label>
+                    <input
+                      type="color"
+                      value={yAxisTickColor}
+                      onChange={(e) => setYAxisTickColor(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Font Size</label>
+                    <input
+                      type="number"
+                      value={fontSize}
+                      onChange={(e) => setFontSize(Number(e.target.value))}
+                      min="8"
+                      max="24"
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Background Color</label>
+                    <input
+                      type="color"
+                      value={bgColor}
+                      onChange={(e) => setBgColor(e.target.value)}
+                    />
+                  </div>
+
+                  {/* LINE STYLING - Default line styling */}
+                  <div className="control-group section-title">
+                    <h3>Default Line Style</h3>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Default Line Thickness</label>
+                    <input
+                      type="number"
+                      value={defaultLineThickness}
+                      onChange={(e) => setDefaultLineThickness(Number(e.target.value))}
+                      min="1"
+                      max="10"
+                    />
+                  </div>
+
+                  <div className="control-group">
+                    <label>Default Dot Size</label>
+                    <input
+                      type="number"
+                      value={defaultDotSize}
+                      onChange={(e) => setDefaultDotSize(Number(e.target.value))}
+                      min="1"
+                      max="10"
+                    />
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Logarithmic Graph</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={logScale}
+                        onChange={(e) => setLogScale(e.target.checked)}
+                        id="log-toggle"
+                      />
+                      <label htmlFor="log-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Orientation</label>
+                    <select
+                      value={orientation}
+                      onChange={(e) => setOrientation(e.target.value)}
+                    >
+                      <option value="horizontal">Horizontal</option>
+                      <option value="vertical">Vertical</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group toggle">
+                    <label>Show values on Graph</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={showValues}
+                        onChange={(e) => setShowValues(e.target.checked)}
+                        id="values-toggle"
+                      />
+                      <label htmlFor="values-toggle" className="slider"></label>
+                    </div>
+                  </div>
+
+                  <div className="control-group">
+                    <label>X-Axis Sort Order</label>
+                    <select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                    >
+                      <option value="default">default</option>
+                      <option value="ascending">ascending</option>
+                      <option value="descending">descending</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group range">
+                    <label>Y-Axis Range</label>
+                    <div className="range-inputs">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={yAxisRange.min}
+                        onChange={(e) => setYAxisRange({ ...yAxisRange, min: e.target.value })}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={yAxisRange.max}
+                        onChange={(e) => setYAxisRange({ ...yAxisRange, max: e.target.value })}
                       />
                     </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            {activeTab === 'options' && (
-              <div className="options-tab">
-                <div className="control-group">
-                  <label>Title</label>
-                  <input
-                    type="text"
-                    value={chartTitle}
-                    onChange={(e) => setChartTitle(e.target.value)}
-                    placeholder="Graph Title"
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>X-axis title</label>
-                  <input
-                    type="text"
-                    value={xAxisTitle}
-                    onChange={(e) => setXAxisTitle(e.target.value)}
-                    placeholder="X-axis title"
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Y-axis title</label>
-                  <input
-                    type="text"
-                    value={yAxisTitle}
-                    onChange={(e) => setYAxisTitle(e.target.value)}
-                    placeholder="Y-axis title"
-                  />
-                </div>
-
-                {/* LABEL FORMATTING - Axis color controls */}
-                <div className="control-group">
-                  <label>X-axis Label Color</label>
-                  <input
-                    type="color"
-                    value={xAxisLabelColor}
-                    onChange={(e) => setXAxisLabelColor(e.target.value)}
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Y-axis Label Color</label>
-                  <input
-                    type="color"
-                    value={yAxisLabelColor}
-                    onChange={(e) => setYAxisLabelColor(e.target.value)}
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>X-axis Tick Color</label>
-                  <input
-                    type="color"
-                    value={xAxisTickColor}
-                    onChange={(e) => setXAxisTickColor(e.target.value)}
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Y-axis Tick Color</label>
-                  <input
-                    type="color"
-                    value={yAxisTickColor}
-                    onChange={(e) => setYAxisTickColor(e.target.value)}
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Font Size</label>
-                  <input
-                    type="number"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
-                    min="8"
-                    max="24"
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Background Color</label>
-                  <input
-                    type="color"
-                    value={bgColor}
-                    onChange={(e) => setBgColor(e.target.value)}
-                  />
-                </div>
-
-                {/* LINE STYLING - Default line styling */}
-                <div className="control-group section-title">
-                  <h3>Default Line Style</h3>
-                </div>
-
-                <div className="control-group">
-                  <label>Default Line Thickness</label>
-                  <input
-                    type="number"
-                    value={defaultLineThickness}
-                    onChange={(e) => setDefaultLineThickness(Number(e.target.value))}
-                    min="1"
-                    max="10"
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Default Dot Size</label>
-                  <input
-                    type="number"
-                    value={defaultDotSize}
-                    onChange={(e) => setDefaultDotSize(Number(e.target.value))}
-                    min="1"
-                    max="10"
-                  />
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Logarithmic Graph</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={logScale}
-                      onChange={(e) => setLogScale(e.target.checked)}
-                      id="log-toggle"
-                    />
-                    <label htmlFor="log-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                <div className="control-group">
-                  <label>Orientation</label>
-                  <select
-                    value={orientation}
-                    onChange={(e) => setOrientation(e.target.value)}
-                  >
-                    <option value="horizontal">Horizontal</option>
-                    <option value="vertical">Vertical</option>
-                  </select>
-                </div>
-
-                <div className="control-group toggle">
-                  <label>Show values on Graph</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showValues}
-                      onChange={(e) => setShowValues(e.target.checked)}
-                      id="values-toggle"
-                    />
-                    <label htmlFor="values-toggle" className="slider"></label>
-                  </div>
-                </div>
-
-                <div className="control-group">
-                  <label>X-Axis Sort Order</label>
-                  <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value)}
-                  >
-                    <option value="default">default</option>
-                    <option value="ascending">ascending</option>
-                    <option value="descending">descending</option>
-                  </select>
-                </div>
-
-                <div className="control-group range">
-                  <label>Y-Axis Range</label>
-                  <div className="range-inputs">
+                  <div className="control-group">
+                    <label>Axis Step Size</label>
                     <input
                       type="number"
-                      placeholder="Min"
-                      value={yAxisRange.min}
-                      onChange={(e) => setYAxisRange({ ...yAxisRange, min: e.target.value })}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={yAxisRange.max}
-                      onChange={(e) => setYAxisRange({ ...yAxisRange, max: e.target.value })}
+                      value={axisStep}
+                      onChange={(e) => setAxisStep(e.target.value)}
+                      placeholder="Auto"
                     />
                   </div>
                 </div>
+              )}
 
-                <div className="control-group">
-                  <label>Axis Step Size</label>
-                  <input
-                    type="number"
-                    value={axisStep}
-                    onChange={(e) => setAxisStep(e.target.value)}
-                    placeholder="Auto"
-                  />
-                </div>
-              </div>
-            )}
+              {activeTab === 'format' && (
+                <div className="format-tab">
+                  <div className="control-group toggle">
+                    <label>Comma separator</label>
+                    <div className="toggle-slider">
+                      <input
+                        type="checkbox"
+                        checked={commaSeparator}
+                        onChange={(e) => setCommaSeparator(e.target.checked)}
+                        id="comma-toggle"
+                      />
+                      <label htmlFor="comma-toggle" className="slider"></label>
+                    </div>
+                  </div>
 
-            {activeTab === 'format' && (
-              <div className="format-tab">
-                <div className="control-group toggle">
-                  <label>Comma separator</label>
-                  <div className="toggle-slider">
+                  <div className="control-group">
+                    <label>Decimal separator</label>
+                    <select
+                      value={decimalSeparator}
+                      onChange={(e) => setDecimalSeparator(e.target.value)}
+                    >
+                      <option value=".">. (decimal point)</option>
+                      <option value=",">, (comma)</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Precision</label>
+                    <select
+                      value={precision}
+                      onChange={(e) => setPrecision(Number(e.target.value))}
+                    >
+                      <option value="0">0</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Prefix</label>
                     <input
-                      type="checkbox"
-                      checked={commaSeparator}
-                      onChange={(e) => setCommaSeparator(e.target.checked)}
-                      id="comma-toggle"
+                      type="text"
+                      value={prefix}
+                      onChange={(e) => setPrefix(e.target.value)}
+                      placeholder="Prefix"
                     />
-                    <label htmlFor="comma-toggle" className="slider"></label>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Postfix</label>
+                    <input
+                      type="text"
+                      value={postfix}
+                      onChange={(e) => setPostfix(e.target.value)}
+                      placeholder="Postfix"
+                    />
                   </div>
                 </div>
-
-                <div className="control-group">
-                  <label>Decimal separator</label>
-                  <select
-                    value={decimalSeparator}
-                    onChange={(e) => setDecimalSeparator(e.target.value)}
-                  >
-                    <option value=".">. (decimal point)</option>
-                    <option value=",">, (comma)</option>
-                  </select>
-                </div>
-
-                <div className="control-group">
-                  <label>Precision</label>
-                  <select
-                    value={precision}
-                    onChange={(e) => setPrecision(Number(e.target.value))}
-                  >
-                    <option value="0">0</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                  </select>
-                </div>
-
-                <div className="control-group">
-                  <label>Prefix</label>
-                  <input
-                    type="text"
-                    value={prefix}
-                    onChange={(e) => setPrefix(e.target.value)}
-                    placeholder="Prefix"
-                  />
-                </div>
-
-                <div className="control-group">
-                  <label>Postfix</label>
-                  <input
-                    type="text"
-                    value={postfix}
-                    onChange={(e) => setPostfix(e.target.value)}
-                    placeholder="Postfix"
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Y-AXIS SELECTOR - Y-axis selector modal */}
