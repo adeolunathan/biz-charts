@@ -1,44 +1,70 @@
+# BizCharts
 
-# BizCharts Platform
-
-A comprehensive chart visualization platform for creating beautiful, publication-quality charts for business, science, finance, and marketing.
+A modern, modular charting library for creating beautiful, interactive data visualizations.
 
 ## Features
 
-- Multiple chart types: line charts, bar charts, pie charts, scatter plots, and more
-- Consistent design language with built-in themes
-- Extensive customization options
-- Flexible data handling (CSV, JSON)
-- Modern web interface
+- **Multiple Chart Types** - Line charts, bar charts, pie charts, and more to come
+- **Interactive Data Grid** - Edit your data directly in the application
+- **Customizable Options** - Extensive styling and formatting options
+- **Export Capabilities** - Export as PNG, SVG, CSV, and more
+- **Responsive Design** - Works on all screen sizes
 
-## Getting Started
+## Project Structure
 
-### Backend Setup
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── common/              # Shared UI components
+│   │   │   ├── DataGrid.js      # Data input component
+│   │   │   ├── CustomizationPanel/
+│   │   │   │   ├── index.js     # Panel collection
+│   │   │   │   ├── Fields.js    # Series selection panel
+│   │   │   │   ├── General.js   # General options panel
+│   │   │   │   └── Format.js    # Number formatting panel  
+│   │   │   ├── ExportToolbar.js # Export functionality
+│   │   │   └── RangeSlider.js   # Data range filter
+│   │   │
+│   │   ├── charts/              # Chart-specific components
+│   │   │   ├── line/            # Line chart components
+│   │   │   │   ├── LineChart.js      # Line chart display
+│   │   │   │   └── LineChartOptions.js # Line chart options
+│   │   │   │
+│   │   │   └── bar/             # Bar chart components (coming soon)
+│   │   │
+│   │   └── ChartInterface.js    # Main container component
+│   │
+│   ├── contexts/
+│   │   └── ChartContext.js      # Global state management
+│   │
+│   ├── hooks/
+│   │   ├── useChartData.js      # Data management hook
+│   │   └── useChartExport.js    # Export functionality hook
+│   │
+│   ├── utils/
+│   │   ├── exportUtils.js       # Export utility functions
+│   │   └── chartRegistry.js     # Chart type registry
+│   │
+│   ├── styles/
+│   │   └── ChartInterface.css   # Styling
+│   │
+│   ├── App.js                   # Application entry point
+│   └── index.js                 # React entry point
+```
 
-1. Navigate to the project root directory
-2. Create a virtual environment:
-   ```
-   python -m venv venv
-   ```
-3. Activate the virtual environment:
-   - Windows: `venv\Scripts\activate`
-   - Mac/Linux: `source venv/bin/activate`
-4. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-5. Run the Flask development server:
-   ```
-   cd backend
-   python app.py
-   ```
+## Adding a New Chart Type
 
-### Frontend Setup
+To add a new chart type:
 
-1. Navigate to the frontend directory:
-   ```
-   cd frontend
-   ```
+1. Create a new directory under `components/charts/` (e.g., `components/charts/bar/`)
+2. Add the main chart component (e.g., `BarChart.js`)
+3. Add chart-specific options (e.g., `BarChartOptions.js`)
+4. Register the chart in `utils/chartRegistry.js`
+
+## Getting Started for Development
+
+1. Clone this repository
 2. Install dependencies:
    ```
    npm install
@@ -47,46 +73,25 @@ A comprehensive chart visualization platform for creating beautiful, publication
    ```
    npm start
    ```
+4. Open [http://localhost:3000](http://localhost:3000) to view it in the browser
 
-## Project Structure
+## Available Scripts
 
-```
-bizcharts/
-├── backend/           # Flask backend
-│   ├── api/           # API routes and controllers
-│   ├── auth/          # Authentication logic
-│   ├── charts/        # Chart generation logic
-│   ├── utils/         # Utility functions
-│   ├── app.py         # Main Flask application
-│   └── config.py      # Configuration settings
-├── frontend/          # React frontend
-│   ├── public/        # Public assets
-│   └── src/           # React source code
-│       ├── components/# Reusable components
-│       ├── pages/     # Page components
-│       ├── utils/     # Utility functions
-│       └── styles/    # CSS files
-├── data/              # Sample data and assets
-└── tests/             # Test suites
-```
+In the project directory, you can run:
 
-## Development Workflow
+- `npm start` - Runs the app in development mode
+- `npm test` - Runs tests
+- `npm run build` - Builds the app for production
+- `npm run eject` - Ejects from Create React App
 
-1. Run the backend server (Flask) on http://localhost:5000
-2. Run the frontend dev server (React) on http://localhost:3000
-3. The React dev server will proxy API requests to the Flask backend
+## Dependencies
 
-## Deployment
+- React
+- Recharts
+- PapaParse (CSV parsing)
+- FileSaver.js
+- html2canvas
 
-For production deployment, build the React app and serve it via the Flask backend:
+## License
 
-1. Build the React app:
-   ```
-   cd frontend
-   npm run build
-   ```
-2. Run the Flask app with gunicorn:
-   ```
-   cd backend
-   gunicorn -w 4 app:app
-   ```
+This project is licensed under the MIT License - see the LICENSE file for details.
