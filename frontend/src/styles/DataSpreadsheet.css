@@ -1,0 +1,152 @@
+/* FILE: ~/Downloads/my work/bizcharts/frontend/src/styles/DataSpreadsheet.css */
+/* Create this new file with the following styles: */
+
+.data-spreadsheet {
+  margin-bottom: 20px;
+}
+
+.spreadsheet-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.spreadsheet-button {
+  background-color: #f1f1f1;
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.spreadsheet-button:hover {
+  background-color: #e0e0e0;
+}
+
+.spreadsheet-container {
+  overflow-x: auto;
+  max-height: 400px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.spreadsheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 500px;
+}
+
+.column-header {
+  background-color: #f5f5f5;
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  border: 1px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-text {
+  flex-grow: 1;
+  cursor: pointer;
+}
+
+.header-text:hover {
+  text-decoration: underline;
+}
+
+.row-header {
+  background-color: #f5f5f5;
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  border: 1px solid #ddd;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+
+.row-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-column-btn,
+.delete-row-btn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 5px;
+  visibility: hidden;
+}
+
+.column-header:hover .delete-column-btn,
+.row-header:hover .delete-row-btn {
+  visibility: visible;
+}
+
+.delete-column-btn:hover,
+.delete-row-btn:hover {
+  color: #e74c3c;
+}
+
+.spreadsheet-cell {
+  padding: 0;
+  border: 1px solid #ddd;
+  position: relative;
+  min-width: 80px;
+  height: 36px;
+}
+
+.cell-content {
+  padding: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.active-cell {
+  padding: 0;
+  background-color: #f0f8ff;
+}
+
+.cell-input {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: none;
+  outline: 2px solid #3498db;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+@media (max-width: 768px) {
+  .spreadsheet-table {
+    min-width: 400px;
+  }
+
+  .column-header,
+  .row-header,
+  .spreadsheet-cell {
+    padding: 6px;
+    font-size: 0.8rem;
+  }
+}
