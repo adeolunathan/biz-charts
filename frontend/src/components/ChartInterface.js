@@ -1,5 +1,8 @@
 // FILE: ~/Downloads/my work/bizcharts/frontend/src/components/ChartInterface.js
-// Replace everything in this file with the following code:
+// Search for "Y-AXIS SELECTOR" to find the modified section for column selection
+// Search for "LEGEND FORMATTING" to find new legend controls
+// Search for "LINE STYLING" to find line thickness controls
+// Search for "EXPORT FUNCTIONS" to find enhanced export functionality
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -7,6 +10,8 @@ import {
   Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import Papa from 'papaparse';
+import html2canvas from 'html2canvas';
+import { saveAs } from 'file-saver';
 import '../styles/ChartInterface.css';
 
 // Default sample data
@@ -67,7 +72,29 @@ const ChartInterface = () => {
     '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'
   ]);
 
+  // LEGEND FORMATTING - New states for legend formatting
+  const [legendPosition, setLegendPosition] = useState('bottom');
+  const [legendLayout, setLegendLayout] = useState('horizontal');
+  const [legendBgColor, setLegendBgColor] = useState('transparent');
+  const [legendTextColor, setLegendTextColor] = useState('#333333');
+
+  // LABEL FORMATTING
+  const [xAxisLabelColor, setXAxisLabelColor] = useState('#333333');
+  const [yAxisLabelColor, setYAxisLabelColor] = useState('#333333');
+  const [xAxisTickColor, setXAxisTickColor] = useState('#666666');
+  const [yAxisTickColor, setYAxisTickColor] = useState('#666666');
+
+  // LINE STYLING
+  const [lineStyles, setLineStyles] = useState({});
+  const [defaultLineThickness, setDefaultLineThickness] = useState(2);
+  const [defaultDotSize, setDefaultDotSize] = useState(4);
+
+  // Y-AXIS SELECTOR - Modal states
+  const [showYAxisSelector, setShowYAxisSelector] = useState(false);
+  const [availableColumns, setAvailableColumns] = useState([]);
+
   // Refs
+  const chartRef = useRef(null);
   const colorPickerRef = useRef(null);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [activeColorIndex, setActiveColorIndex] = useState(null);
@@ -79,6 +106,16 @@ const ChartInterface = () => {
     max: 100
   });
 
+  // Update available columns whenever data changes
+  useEffect(() => {
+    if (chartData.length > 0) {
+      const allColumns = Object.keys(chartData[0]);
+      const usedColumns = [xAxisKey, ...yAxisKeys];
+      const availableCols = allColumns.filter(col => !usedColumns.includes(col));
+      setAvailableColumns(availableCols);
+    }
+  }, [chartData, xAxisKey, yAxisKeys]);
+
   // Update visible data based on slider
   useEffect(() => {
     if (chartData.length > 0) {
@@ -89,6 +126,22 @@ const ChartInterface = () => {
       });
     }
   }, [rangeValue, chartData]);
+
+  // Initialize line styles when y-axis keys change
+  useEffect(() => {
+    const newLineStyles = {};
+    yAxisKeys.forEach(key => {
+      if (!lineStyles[key]) {
+        newLineStyles[key] = {
+          thickness: defaultLineThickness,
+          dotSize: defaultDotSize
+        };
+      } else {
+        newLineStyles[key] = lineStyles[key];
+      }
+    });
+    setLineStyles(newLineStyles);
+  }, [yAxisKeys, defaultLineThickness, defaultDotSize]);
 
   // Handle cell click in the data grid
   const handleCellClick = (rowIndex, columnName) => {
@@ -151,6 +204,14 @@ const ChartInterface = () => {
         key === editingHeader ? headerEditValue : key
       );
       setYAxisKeys(newYAxisKeys);
+
+      // Update line styles if needed
+      if (lineStyles[editingHeader]) {
+        const newLineStyles = { ...lineStyles };
+        newLineStyles[headerEditValue] = newLineStyles[editingHeader];
+        delete newLineStyles[editingHeader];
+        setLineStyles(newLineStyles);
+      }
 
       setEditingHeader(null);
     } else {
@@ -332,6 +393,13 @@ const ChartInterface = () => {
 
     // Update yAxisKeys if needed
     setYAxisKeys(yAxisKeys.filter(key => key !== columnName));
+
+    // Update line styles if needed
+    if (lineStyles[columnName]) {
+      const newLineStyles = { ...lineStyles };
+      delete newLineStyles[columnName];
+      setLineStyles(newLineStyles);
+    }
   };
 
   // Delete a row
@@ -346,18 +414,15 @@ const ChartInterface = () => {
     setChartData(newData);
   };
 
-  // Add new Y-axis series
-  const addYAxis = () => {
-    // Find all available columns that aren't already y-axis series
-    const allColumns = Object.keys(chartData[0] || {});
-    const availableColumns = allColumns.filter(col =>
-      col !== xAxisKey && !yAxisKeys.includes(col)
-    );
+  // Y-AXIS SELECTOR - Show the Y-axis selector modal
+  const openYAxisSelector = () => {
+    setShowYAxisSelector(true);
+  };
 
-    if (availableColumns.length > 0) {
-      setYAxisKeys([...yAxisKeys, availableColumns[0]]);
-    } else {
-      // If no available columns, create a new one
+  // Y-AXIS SELECTOR - Add a new Y-axis series
+  const addYAxis = (columnName) => {
+    if (columnName === 'new') {
+      // Create a new column
       const columns = Object.keys(chartData[0] || {});
       let newColumnName = `y${yAxisKeys.length + 1}`;
 
@@ -373,7 +438,12 @@ const ChartInterface = () => {
 
       setChartData(newData);
       setYAxisKeys([...yAxisKeys, newColumnName]);
+    } else if (columnName) {
+      // Add existing column
+      setYAxisKeys([...yAxisKeys, columnName]);
     }
+
+    setShowYAxisSelector(false);
   };
 
   // Toggle color picker visibility
@@ -388,6 +458,28 @@ const ChartInterface = () => {
     newPalette[index] = color;
     setColorPalette(newPalette);
     setColorPickerVisible(false);
+  };
+
+  // LINE STYLING - Update line thickness
+  const updateLineThickness = (key, thickness) => {
+    setLineStyles({
+      ...lineStyles,
+      [key]: {
+        ...lineStyles[key],
+        thickness: Number(thickness)
+      }
+    });
+  };
+
+  // LINE STYLING - Update dot size
+  const updateDotSize = (key, size) => {
+    setLineStyles({
+      ...lineStyles,
+      [key]: {
+        ...lineStyles[key],
+        dotSize: Number(size)
+      }
+    });
   };
 
   // Import data from CSV
@@ -419,29 +511,50 @@ const ChartInterface = () => {
     }
   };
 
-  // Export chart as image
-  const exportImage = () => {
-    alert('Image export would be implemented here.');
-    // This would typically use html2canvas or a similar library
+  // EXPORT FUNCTIONS - Export chart as PNG
+  const exportPNG = () => {
+    if (chartRef.current) {
+      html2canvas(chartRef.current, {
+        backgroundColor: bgColor,
+        scale: 2 // Higher quality
+      }).then(canvas => {
+        canvas.toBlob(blob => {
+          saveAs(blob, `${chartTitle || 'chart'}.png`);
+        });
+      });
+    }
   };
 
-  // Export data as CSV
-  const exportCsv = () => {
+  // EXPORT FUNCTIONS - Export chart as SVG
+  const exportSVG = () => {
+    if (chartRef.current) {
+      // For SVG export, we'd need a more complex implementation or a library
+      // This is a placeholder alert
+      alert('SVG export would be implemented with a library like svg-crowbar or saveSvgAsPng');
+    }
+  };
+
+  // EXPORT FUNCTIONS - Export data as CSV
+  const exportCSV = () => {
     const csvData = Papa.unparse(chartData);
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'chart_data.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    saveAs(blob, `${chartTitle || 'chart_data'}.csv`);
   };
 
-  // Generate embed code
+  // EXPORT FUNCTIONS - Export as PDF
+  const exportPDF = () => {
+    alert('PDF export would be implemented with a library like jsPDF');
+  };
+
+  // EXPORT FUNCTIONS - Generate embed code
   const getEmbedCode = () => {
-    alert('Embed code generation would be implemented here.');
-    // This would generate HTML code for embedding the chart
+    const title = chartTitle || 'Chart';
+    const embedCode = `<iframe src="${window.location.origin}/embed/${title.replace(/\s+/g, '-').toLowerCase()}" width="800" height="500" frameborder="0"></iframe>`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(embedCode).then(() => {
+      alert('Embed code copied to clipboard!');
+    });
   };
 
   // Set Y-axis auto range
@@ -639,13 +752,22 @@ const ChartInterface = () => {
               <button className="embed-btn" onClick={getEmbedCode}>
                 <span className="icon">&lt;/&gt;</span> Embed
               </button>
-              <button className="image-btn" onClick={exportImage}>
-                <span className="icon">↓</span> Image
+              <button className="image-btn" onClick={() => {
+                const dropdown = document.getElementById('export-dropdown');
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+              }}>
+                <span className="icon">↓</span> Export
               </button>
+              <div id="export-dropdown" className="export-dropdown">
+                <button onClick={exportPNG}>PNG Image</button>
+                <button onClick={exportSVG}>SVG Vector</button>
+                <button onClick={exportCSV}>CSV Data</button>
+                <button onClick={exportPDF}>PDF Document</button>
+              </div>
             </div>
           </div>
 
-          <div className="chart-container" style={{ backgroundColor: bgColor }}>
+          <div className="chart-container" ref={chartRef} style={{ backgroundColor: bgColor }}>
             {chartTitle && (
               <div className="chart-title-display">
                 {chartTitle}
@@ -657,7 +779,12 @@ const ChartInterface = () => {
                 {orientation === 'vertical' ? (
                   <LineChart
                     data={getVisibleData()}
-                    margin={{ top: 30, right: 30, left: 20, bottom: 30 }}
+                    margin={{
+                      top: chartTitle ? 10 : 30,
+                      right: 30,
+                      left: 20,
+                      bottom: legendPosition === 'bottom' ? 40 : 30
+                    }}
                     layout="vertical"
                   >
                     {(showGridX || showGridY) && (
@@ -672,8 +799,12 @@ const ChartInterface = () => {
                     {showXAxis && (
                       <XAxis
                         type="number"
-                        label={{ value: yAxisTitle, position: 'bottom', style: { fontSize } }}
-                        tick={{ fontSize }}
+                        label={{
+                          value: yAxisTitle,
+                          position: 'bottom',
+                          style: { fontSize, fill: yAxisLabelColor }
+                        }}
+                        tick={{ fontSize, fill: yAxisTickColor }}
                         height={50}
                         domain={[
                           yAxisRange.min !== '' ? Number(yAxisRange.min) : 'auto',
@@ -687,8 +818,13 @@ const ChartInterface = () => {
                       <YAxis
                         dataKey={xAxisKey}
                         type="category"
-                        label={{ value: xAxisTitle, angle: -90, position: 'insideLeft', style: { fontSize } }}
-                        tick={{ fontSize }}
+                        label={{
+                          value: xAxisTitle,
+                          angle: -90,
+                          position: 'insideLeft',
+                          style: { fontSize, fill: xAxisLabelColor }
+                        }}
+                        tick={{ fontSize, fill: xAxisTickColor }}
                         width={100}
                       />
                     )}
@@ -717,7 +853,19 @@ const ChartInterface = () => {
                       }}
                     />
 
-                    {showLegend && <Legend />}
+                    {showLegend && (
+                      <Legend
+                        verticalAlign={legendPosition}
+                        layout={legendLayout}
+                        wrapperStyle={{
+                          backgroundColor: legendBgColor,
+                          color: legendTextColor,
+                          borderRadius: '4px',
+                          padding: '5px',
+                          marginTop: legendPosition === 'bottom' ? '20px' : '0'
+                        }}
+                      />
+                    )}
 
                     {yAxisKeys.map((key, index) => (
                       <Line
@@ -725,16 +873,31 @@ const ChartInterface = () => {
                         type="monotone"
                         dataKey={key}
                         stroke={colorPalette[index % colorPalette.length]}
-                        activeDot={{ r: 8 }}
-                        dot={{ r: 4 }}
-                        label={showValues ? { position: 'right', fontSize } : false}
+                        strokeWidth={lineStyles[key]?.thickness || defaultLineThickness}
+                        activeDot={{
+                          r: (lineStyles[key]?.dotSize || defaultDotSize) + 4,
+                          fill: colorPalette[index % colorPalette.length]
+                        }}
+                        dot={{
+                          r: lineStyles[key]?.dotSize || defaultDotSize
+                        }}
+                        label={showValues ? {
+                          position: 'right',
+                          fontSize,
+                          fill: colorPalette[index % colorPalette.length]
+                        } : false}
                       />
                     ))}
                   </LineChart>
                 ) : (
                   <LineChart
                     data={getVisibleData()}
-                    margin={{ top: 30, right: 30, left: 20, bottom: 30 }}
+                    margin={{
+                      top: chartTitle ? 10 : 30,
+                      right: 30,
+                      left: 20,
+                      bottom: legendPosition === 'bottom' ? 40 : 30
+                    }}
                   >
                     {(showGridX || showGridY) && (
                       <CartesianGrid
@@ -748,16 +911,25 @@ const ChartInterface = () => {
                     {showXAxis && (
                       <XAxis
                         dataKey={xAxisKey}
-                        label={{ value: xAxisTitle, position: 'bottom', style: { fontSize } }}
-                        tick={{ fontSize }}
+                        label={{
+                          value: xAxisTitle,
+                          position: 'bottom',
+                          style: { fontSize, fill: xAxisLabelColor }
+                        }}
+                        tick={{ fontSize, fill: xAxisTickColor }}
                         height={50}
                       />
                     )}
 
                     {showYAxis && (
                       <YAxis
-                        label={{ value: yAxisTitle, angle: -90, position: 'left', style: { fontSize } }}
-                        tick={{ fontSize }}
+                        label={{
+                          value: yAxisTitle,
+                          angle: -90,
+                          position: 'left',
+                          style: { fontSize, fill: yAxisLabelColor }
+                        }}
+                        tick={{ fontSize, fill: yAxisTickColor }}
                         width={60}
                         domain={[
                           yAxisRange.min !== '' ? Number(yAxisRange.min) : 'auto',
@@ -791,7 +963,19 @@ const ChartInterface = () => {
                       }}
                     />
 
-                    {showLegend && <Legend />}
+                    {showLegend && (
+                      <Legend
+                        verticalAlign={legendPosition}
+                        layout={legendLayout}
+                        wrapperStyle={{
+                          backgroundColor: legendBgColor,
+                          color: legendTextColor,
+                          borderRadius: '4px',
+                          padding: '5px',
+                          marginTop: legendPosition === 'bottom' ? '20px' : '0'
+                        }}
+                      />
+                    )}
 
                     {yAxisKeys.map((key, index) => (
                       <Line
@@ -799,9 +983,19 @@ const ChartInterface = () => {
                         type="monotone"
                         dataKey={key}
                         stroke={colorPalette[index % colorPalette.length]}
-                        activeDot={{ r: 8 }}
-                        dot={{ r: 4 }}
-                        label={showValues ? { position: 'top', fontSize } : false}
+                        strokeWidth={lineStyles[key]?.thickness || defaultLineThickness}
+                        activeDot={{
+                          r: (lineStyles[key]?.dotSize || defaultDotSize) + 4,
+                          fill: colorPalette[index % colorPalette.length]
+                        }}
+                        dot={{
+                          r: lineStyles[key]?.dotSize || defaultDotSize
+                        }}
+                        label={showValues ? {
+                          position: 'top',
+                          fontSize,
+                          fill: colorPalette[index % colorPalette.length]
+                        } : false}
                       />
                     ))}
                   </LineChart>
@@ -876,7 +1070,7 @@ const ChartInterface = () => {
                 </div>
 
                 <div className="control-group">
-                  <label>Y-Axis</label>
+                  <label>Y-Axis Series</label>
                   <div className="y-axis-list">
                     {yAxisKeys.map((key, index) => (
                       <div key={index} className="y-axis-item">
@@ -886,6 +1080,33 @@ const ChartInterface = () => {
                           onClick={() => toggleColorPicker(index)}
                         ></div>
                         <span>{key}</span>
+
+                        {/* LINE STYLING - Line thickness control */}
+                        <div className="line-controls">
+                          <div className="line-thickness">
+                            <label title="Line Thickness">
+                              <span className="line-icon">━</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={lineStyles[key]?.thickness || defaultLineThickness}
+                                onChange={(e) => updateLineThickness(key, e.target.value)}
+                              />
+                            </label>
+                            <label title="Dot Size">
+                              <span className="dot-icon">⚬</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={lineStyles[key]?.dotSize || defaultDotSize}
+                                onChange={(e) => updateDotSize(key, e.target.value)}
+                              />
+                            </label>
+                          </div>
+                        </div>
+
                         <button
                           className="remove-y-axis"
                           onClick={() => setYAxisKeys(yAxisKeys.filter(k => k !== key))}
@@ -894,7 +1115,7 @@ const ChartInterface = () => {
                         </button>
                       </div>
                     ))}
-                    <button className="add-y-axis" onClick={addYAxis}>+ Y-Axis</button>
+                    <button className="add-y-axis" onClick={openYAxisSelector}>+ Y-Axis</button>
                   </div>
                 </div>
 
@@ -953,6 +1174,78 @@ const ChartInterface = () => {
                     <label htmlFor="grid-y-toggle" className="slider"></label>
                   </div>
                 </div>
+
+                {/* LEGEND FORMATTING - Legend controls */}
+                <div className="control-group section-title">
+                  <h3>Legend</h3>
+                </div>
+
+                <div className="control-group toggle">
+                  <label>Show Legend</label>
+                  <div className="toggle-slider">
+                    <input
+                      type="checkbox"
+                      checked={showLegend}
+                      onChange={(e) => setShowLegend(e.target.checked)}
+                      id="legend-toggle"
+                    />
+                    <label htmlFor="legend-toggle" className="slider"></label>
+                  </div>
+                </div>
+
+                {showLegend && (
+                  <>
+                    <div className="control-group">
+                      <label>Legend Position</label>
+                      <select
+                        value={legendPosition}
+                        onChange={(e) => setLegendPosition(e.target.value)}
+                      >
+                        <option value="bottom">Bottom</option>
+                        <option value="top">Top</option>
+                      </select>
+                    </div>
+
+                    <div className="control-group">
+                      <label>Legend Layout</label>
+                      <select
+                        value={legendLayout}
+                        onChange={(e) => setLegendLayout(e.target.value)}
+                      >
+                        <option value="horizontal">Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                      </select>
+                    </div>
+
+                    <div className="control-group">
+                      <label>Legend Background</label>
+                      <input
+                        type="color"
+                        value={legendBgColor === 'transparent' ? '#ffffff' : legendBgColor}
+                        onChange={(e) => setLegendBgColor(e.target.value)}
+                      />
+                      <div className="color-with-toggle">
+                        <label className="checkbox-container">
+                          <input
+                            type="checkbox"
+                            checked={legendBgColor !== 'transparent'}
+                            onChange={(e) => setLegendBgColor(e.target.checked ? '#ffffff' : 'transparent')}
+                          />
+                          Show background
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="control-group">
+                      <label>Legend Text Color</label>
+                      <input
+                        type="color"
+                        value={legendTextColor}
+                        onChange={(e) => setLegendTextColor(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {colorPickerVisible && (
                   <div className="color-picker-container" ref={colorPickerRef}>
@@ -1021,6 +1314,43 @@ const ChartInterface = () => {
                   />
                 </div>
 
+                {/* LABEL FORMATTING - Axis color controls */}
+                <div className="control-group">
+                  <label>X-axis Label Color</label>
+                  <input
+                    type="color"
+                    value={xAxisLabelColor}
+                    onChange={(e) => setXAxisLabelColor(e.target.value)}
+                  />
+                </div>
+
+                <div className="control-group">
+                  <label>Y-axis Label Color</label>
+                  <input
+                    type="color"
+                    value={yAxisLabelColor}
+                    onChange={(e) => setYAxisLabelColor(e.target.value)}
+                  />
+                </div>
+
+                <div className="control-group">
+                  <label>X-axis Tick Color</label>
+                  <input
+                    type="color"
+                    value={xAxisTickColor}
+                    onChange={(e) => setXAxisTickColor(e.target.value)}
+                  />
+                </div>
+
+                <div className="control-group">
+                  <label>Y-axis Tick Color</label>
+                  <input
+                    type="color"
+                    value={yAxisTickColor}
+                    onChange={(e) => setYAxisTickColor(e.target.value)}
+                  />
+                </div>
+
                 <div className="control-group">
                   <label>Font Size</label>
                   <input
@@ -1041,17 +1371,31 @@ const ChartInterface = () => {
                   />
                 </div>
 
-                <div className="control-group toggle">
-                  <label>Show Legend</label>
-                  <div className="toggle-slider">
-                    <input
-                      type="checkbox"
-                      checked={showLegend}
-                      onChange={(e) => setShowLegend(e.target.checked)}
-                      id="legend-toggle"
-                    />
-                    <label htmlFor="legend-toggle" className="slider"></label>
-                  </div>
+                {/* LINE STYLING - Default line styling */}
+                <div className="control-group section-title">
+                  <h3>Default Line Style</h3>
+                </div>
+
+                <div className="control-group">
+                  <label>Default Line Thickness</label>
+                  <input
+                    type="number"
+                    value={defaultLineThickness}
+                    onChange={(e) => setDefaultLineThickness(Number(e.target.value))}
+                    min="1"
+                    max="10"
+                  />
+                </div>
+
+                <div className="control-group">
+                  <label>Default Dot Size</label>
+                  <input
+                    type="number"
+                    value={defaultDotSize}
+                    onChange={(e) => setDefaultDotSize(Number(e.target.value))}
+                    min="1"
+                    max="10"
+                  />
                 </div>
 
                 <div className="control-group toggle">
@@ -1197,6 +1541,52 @@ const ChartInterface = () => {
           </div>
         </div>
       </div>
+
+      {/* Y-AXIS SELECTOR - Y-axis selector modal */}
+      {showYAxisSelector && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Add Y-Axis Series</h3>
+              <button className="modal-close" onClick={() => setShowYAxisSelector(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {availableColumns.length > 0 ? (
+                <>
+                  <p>Select a column to add as Y-axis:</p>
+                  <div className="column-list">
+                    {availableColumns.map((column, index) => (
+                      <button
+                        key={index}
+                        className="column-button"
+                        onClick={() => addYAxis(column)}
+                      >
+                        {column}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p>All columns are already in use.</p>
+              )}
+              <div className="modal-action">
+                <button
+                  className="add-new-column-button"
+                  onClick={() => addYAxis('new')}
+                >
+                  Create New Column
+                </button>
+                <button
+                  className="cancel-button"
+                  onClick={() => setShowYAxisSelector(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
